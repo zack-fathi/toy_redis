@@ -1,10 +1,18 @@
 package main
 
 import (
-    "fmt"
+	"log/slog"
+	"os"
 )
 
 func main() {
-    fmt.Println("Starting server")
+
+	opts := &slog.HandlerOptions{
+		Level: slog.LevelDebug, // Sets minimum level to DEBUG
+	}
+
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, opts))
+	slog.SetDefault(logger)
+	slog.Info("redis server starting", "addr", ":6379")
 	listen()
 }
