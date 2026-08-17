@@ -11,7 +11,7 @@ import (
 var acceptedCommands = []string{
 	"ping", "set", "get", "hset", "hget", "hgetall"}
 
-func handleCommands(fields []string) ([]byte, error) {
+func dispatchCommand(fields []string) ([]byte, error) {
 
 	if len(fields) == 0 {
 		slog.Warn("received empty command")

@@ -2,12 +2,42 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"io"
 	"log/slog"
 	"strconv"
 	"strings"
 	// "slices"
 )
+
+func decodeRequest(reader *bufio.Reader, remoteAddr string) ([]string, error) {
+
+	byteType, err := readValue(reader)
+	var fields []string
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			slog.Debug("client disconnected", "remote_addr", remoteAddr)
+		} else {
+			slog.Warn("failed to read RESP type marker", "remote_addr", remoteAddr, "error", err)
+		}
+		return nil, err
+	}
+
+	if byteType == '*' {
+		fields, err = parseArray(reader)
+		if err != nil {
+			slog.Warn("failed to parse RESP array", "remote_addr", remoteAddr, "error", err)
+			return nil, err
+		}
+		slog.Debug("decoded RESP request", "remote_addr", remoteAddr, "field_count", len(fields))
+
+	} else {
+		slog.Warn("unsupported RESP type marker", "remote_addr", remoteAddr, "type", string(byteType))
+	}
+
+	return fields, nil
+
+}
 
 // Reads first byte from stream to determine data type
 func readValue(reader *bufio.Reader) (byte, error) {
@@ -36,7 +66,6 @@ func parseArray(reader *bufio.Reader) ([]string, error) {
 		return nil, err
 	}
 	slog.Debug("decoded RESP array length", "length", length)
-
 
 	var fields []string
 	for i := 0; i < length; i++ {
