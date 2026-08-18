@@ -14,5 +14,10 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, opts))
 	slog.SetDefault(logger)
 	slog.Info("redis server starting", "addr", ":6379")
-	listen()
+
+	kvStore := kvStore{
+		Store: make(map[string]string),
+	}
+
+	listen(kvStore)
 }
