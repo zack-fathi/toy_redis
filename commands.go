@@ -11,7 +11,7 @@ import (
 var acceptedCommands = []string{
 	"ping", "set", "get", "hset", "hget", "hgetall"}
 
-func dispatchCommand(fields []string, kvStore kvStore) ([]byte, error) {
+func dispatchCommand(fields []string, db *database) ([]byte, error) {
 
 	if len(fields) == 0 {
 		slog.Warn("received empty command")
@@ -30,15 +30,15 @@ func dispatchCommand(fields []string, kvStore kvStore) ([]byte, error) {
 	case "ping":
 		dispatchPing(fields, &resp)
 	case "set":
-		dispatchSet(fields, &resp, kvStore)
+		dispatchSet(fields, &resp, db)
 	case "get":
-		dispatchGet(fields, &resp, kvStore)
+		dispatchGet(fields, &resp, db)
 	case "hset":
-		dispatchHset(fields, &resp, kvStore)
+		dispatchHset(fields, &resp, db)
 	case "hget":
-		dispatchHget(fields, &resp, kvStore)
+		dispatchHget(fields, &resp, db)
 	case "hgetall":
-		dispatchHgetall(fields, &resp, kvStore)
+		dispatchHgetall(fields, &resp, db)
 	}
 	slog.Debug("command completed", "command", command, "response_bytes", len(resp))
 
@@ -59,116 +59,54 @@ func dispatchPing(fields []string, resp *[]byte) {
 	}
 }
 
-func dispatchSet(fields []string, resp *[]byte, kvStore kvStore) {
+func dispatchSet(fields []string, resp *[]byte, db *database) {
+	
 	if len(fields) != 3 {
-			slog.Warn("received 'set' with wrong number of arguments", "argument_count", len(fields)-1)
-			*resp = []byte("-ERR wrong number of arguments for command\r\n")
-			return
-		}
-		key := fields[1]
-		value := fields[2]
-		kvStore.Store[key] = value
-		*resp = []byte("+OK\r\n")
+		slog.Warn("received 'set' with wrong number of arguments", "argument_count", len(fields)-1)
+		*resp = []byte("-ERR wrong number of arguments for command\r\n")
+		return
+	}
+	db.setString(fields, resp)
 }
 
-func dispatchGet(fields []string, resp *[]byte, kvStore kvStore) {
+func dispatchGet(fields []string, resp *[]byte, db *database) {
+	
+
 	if len(fields) != 2 {
 		slog.Warn("received 'get' with wrong number of arguments", "argument_count", len(fields)-1)
 		*resp = []byte("-ERR wrong number of arguments for command\r\n")
 		return
 	}
-
-	key := fields[1]
-	value, ok := kvStore.Store[key]
-	if !ok {
-		slog.Warn("key not found", "key", key)
-		*resp = []byte("$-1\r\n")
-		return
-	}
-	*resp = []byte(
-		"$" + strconv.Itoa(len(value)) + "\r\n" + value + "\r\n",
-	)
+	db.getString(fields, resp)
 }
 
-func dispatchHset(fields []string, resp *[]byte, kvStore kvStore) {
+func dispatchHset(fields []string, resp *[]byte, db *database) {
 
 	argCount := len(fields)
-	if argCount < 4 || argCount % 2 != 0{
+	if argCount < 4 || argCount%2 != 0 {
 		slog.Warn("received 'hset' with wrong number of arguments", "argument_count", len(fields)-1)
 		*resp = []byte("-ERR wrong number of arguments for command\r\n")
 		return
 	}
-
-	hash := fields[1]
-	if _, exists := kvStore.Hashes[hash]; !exists {
-		kvStore.Hashes[hash] = make(map[string]string)
-	}
-	
-	newFields := 0
-	for i := 2; i < len(fields); i += 2 {
-		field := fields[i]
-		newValue := fields[i+1]
-
-		if _, exists := kvStore.Hashes[hash][field]; !exists {
-			newFields++
-		}
-
-		kvStore.Hashes[hash][field] = newValue
-	}
-
-	*resp = []byte(":" + strconv.Itoa(newFields) + "\r\n")
+	db.setHashFields(fields, resp)	
 }
 
-func dispatchHget(fields []string, resp *[]byte, kvStore kvStore) {
+func dispatchHget(fields []string, resp *[]byte, db *database) {
 
 	if len(fields) != 3 {
 		slog.Warn("received 'hget' with wrong number of arguments", "argument_count", len(fields)-1)
 		*resp = []byte("-ERR wrong number of arguments for command\r\n")
 		return
 	}
-
-	hash := fields[1]
-	field := fields[2]
-	if _, exists := kvStore.Hashes[hash][field]; !exists {
-		slog.Warn("key not found", "hash", hash, "field", field)
-		*resp = []byte("$-1\r\n")
-		return
-    }
-	
-	value := kvStore.Hashes[hash][field]
-	*resp = []byte(
-		"$" + strconv.Itoa(len(value)) + "\r\n" + value + "\r\n",
-	)
-
+	db.getHashField(fields, resp)
 }
 
-func dispatchHgetall(fields []string, resp *[]byte, kvStore kvStore) {
+func dispatchHgetall(fields []string, resp *[]byte, db *database) {
 
 	if len(fields) != 2 {
 		slog.Warn("received 'hgetall' with wrong number of arguments", "argument_count", len(fields)-1)
 		*resp = []byte("-ERR wrong number of arguments for command\r\n")
 		return
 	}
-
-	hash := fields[1]
-	if _, exists := kvStore.Hashes[hash]; !exists {
-		slog.Warn("key not found", "key", hash)
-		*resp = []byte("*0\r\n")
-		return
-    }
-	
-	var respArray []string
-	for field, value := range kvStore.Hashes[hash] {
-		respArray = append(respArray, field, value)
-	}
-
-	*resp = []byte("*" + strconv.Itoa(len(respArray)) + "\r\n")
-	for _, value := range respArray {
-		encodedValue := []byte(
-			"$" + strconv.Itoa(len(value)) + "\r\n" + value + "\r\n",
-		)
-		*resp = append(*resp, encodedValue...)
-	}
-
+	db.getAllHashFields(fields, resp)
 }
-

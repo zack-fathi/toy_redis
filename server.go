@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func listen(kvStore kvStore) {
+func listen(db *database) {
 
 	// listen on socket
 	l, err := net.Listen("tcp", ":6379")
@@ -28,12 +28,12 @@ func listen(kvStore kvStore) {
 
 		slog.Info("client connected", "remote_addr", conn.RemoteAddr().String())
 
-		go serverHandler(conn, kvStore)
+		go serverHandler(conn, db)
 	}
 
 }
 
-func serverHandler(conn net.Conn, kvStore kvStore) {
+func serverHandler(conn net.Conn, db *database) {
 
 	remoteAddr := conn.RemoteAddr().String()
 	slog.Debug("starting client handler", "remote_addr", remoteAddr)
@@ -49,7 +49,7 @@ func serverHandler(conn net.Conn, kvStore kvStore) {
 			return
 		}
 
-		resp, err := dispatchCommand(fields, kvStore)
+		resp, err := dispatchCommand(fields, db)
 		if err != nil {
 			slog.Warn("command handling failed", "remote_addr", remoteAddr, "error", err)
 			return

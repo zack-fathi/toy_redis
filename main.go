@@ -15,10 +15,10 @@ func main() {
 	slog.SetDefault(logger)
 	slog.Info("redis server starting", "addr", ":6379")
 
-	kvStore := kvStore{
-		Store: make(map[string]string),
+	db := &database{
+		Store:  make(map[string]string),
 		Hashes: make(map[string]map[string]string),
 	}
 
-	listen(kvStore)
+	listen(db)
 }
