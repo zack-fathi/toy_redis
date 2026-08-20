@@ -17,6 +17,7 @@ func main() {
 
 	kvStore := kvStore{
 		Store: make(map[string]string),
+		Hashes: make(map[string]map[string]string),
 	}
 
 	listen(kvStore)
