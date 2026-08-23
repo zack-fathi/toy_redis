@@ -11,10 +11,10 @@ import (
 var acceptedCommands = []string{
 	"ping", "set", "get", "hset", "hget", "hgetall"}
 
-func dispatchCommand(fields []string, db *database) ([]byte, error) {
+func dispatchCommand(fields []string, db *database, log *aof, persist bool) ([]byte, error) {
 
 	if len(fields) == 0 {
-		slog.Warn("received empty command")
+		slog.Warn("received empty command", "argument_count", 0)
 		return nil, fmt.Errorf("ERR empty command")
 	}
 
@@ -30,16 +30,37 @@ func dispatchCommand(fields []string, db *database) ([]byte, error) {
 	case "ping":
 		dispatchPing(fields, &resp)
 	case "set":
+		if len(fields) != 3 {
+			slog.Warn("received SET with wrong number of arguments", "argument_count", len(fields)-1)
+			resp = []byte("-ERR wrong number of arguments for 'set' command\r\n")
+			break
+		}
 		dispatchSet(fields, &resp, db)
+		if persist {
+			if err := log.append(fields); err != nil {
+				return nil, fmt.Errorf("append SET to AOF: %w", err)
+			}
+		}
 	case "get":
 		dispatchGet(fields, &resp, db)
 	case "hset":
+		if len(fields) < 4 || len(fields)%2 != 0 {
+			slog.Warn("received HSET with wrong number of arguments", "argument_count", len(fields)-1)
+			resp = []byte("-ERR wrong number of arguments for 'hset' command\r\n")
+			break
+		}
 		dispatchHset(fields, &resp, db)
+		if persist {
+			if err := log.append(fields); err != nil {
+				return nil, fmt.Errorf("append HSET to AOF: %w", err)
+			}
+		}
 	case "hget":
 		dispatchHget(fields, &resp, db)
 	case "hgetall":
 		dispatchHgetall(fields, &resp, db)
 	}
+
 	slog.Debug("command completed", "command", command, "response_bytes", len(resp))
 
 	return resp, nil
@@ -60,17 +81,10 @@ func dispatchPing(fields []string, resp *[]byte) {
 }
 
 func dispatchSet(fields []string, resp *[]byte, db *database) {
-	
-	if len(fields) != 3 {
-		slog.Warn("received 'set' with wrong number of arguments", "argument_count", len(fields)-1)
-		*resp = []byte("-ERR wrong number of arguments for command\r\n")
-		return
-	}
 	db.setString(fields, resp)
 }
 
 func dispatchGet(fields []string, resp *[]byte, db *database) {
-	
 
 	if len(fields) != 2 {
 		slog.Warn("received 'get' with wrong number of arguments", "argument_count", len(fields)-1)
@@ -81,14 +95,7 @@ func dispatchGet(fields []string, resp *[]byte, db *database) {
 }
 
 func dispatchHset(fields []string, resp *[]byte, db *database) {
-
-	argCount := len(fields)
-	if argCount < 4 || argCount%2 != 0 {
-		slog.Warn("received 'hset' with wrong number of arguments", "argument_count", len(fields)-1)
-		*resp = []byte("-ERR wrong number of arguments for command\r\n")
-		return
-	}
-	db.setHashFields(fields, resp)	
+	db.setHashFields(fields, resp)
 }
 
 func dispatchHget(fields []string, resp *[]byte, db *database) {

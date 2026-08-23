@@ -20,5 +20,18 @@ func main() {
 		Hashes: make(map[string]map[string]string),
 	}
 
-	listen(db)
+	aof := &aof{}
+	err := aof.openAOF("database.aof")
+	if err != nil {
+		slog.Error("failed to initialize AOF", "error", err)
+		return
+	}
+	defer aof.close()
+	err = aof.replay(db)
+	if err != nil {
+		slog.Error("failed to restore database from AOF", "error", err)
+		return
+	}
+
+	listen(db, aof)
 }

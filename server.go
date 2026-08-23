@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func listen(db *database) {
+func listen(db *database, log *aof) {
 
 	// listen on socket
 	l, err := net.Listen("tcp", ":6379")
@@ -28,12 +28,12 @@ func listen(db *database) {
 
 		slog.Info("client connected", "remote_addr", conn.RemoteAddr().String())
 
-		go serverHandler(conn, db)
+		go serverHandler(conn, db, log)
 	}
 
 }
 
-func serverHandler(conn net.Conn, db *database) {
+func serverHandler(conn net.Conn, db *database, log *aof) {
 
 	remoteAddr := conn.RemoteAddr().String()
 	slog.Debug("starting client handler", "remote_addr", remoteAddr)
@@ -49,7 +49,7 @@ func serverHandler(conn net.Conn, db *database) {
 			return
 		}
 
-		resp, err := dispatchCommand(fields, db)
+		resp, err := dispatchCommand(fields, db, log, true)
 		if err != nil {
 			slog.Warn("command handling failed", "remote_addr", remoteAddr, "error", err)
 			return

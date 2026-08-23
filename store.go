@@ -1,9 +1,9 @@
 package main
 
 import (
-	"sync"
 	"log/slog"
 	"strconv"
+	"sync"
 )
 
 type database struct {
@@ -15,7 +15,7 @@ type database struct {
 }
 
 func (db *database) setString(fields []string, resp *[]byte) {
-	
+
 	db.storeMu.Lock()
 	defer db.storeMu.Unlock()
 
@@ -34,7 +34,7 @@ func (db *database) getString(fields []string, resp *[]byte) {
 	key := fields[1]
 	value, ok := db.Store[key]
 	if !ok {
-		slog.Warn("key not found", "key", key)
+		slog.Debug("string key not found", "key", key)
 		*resp = []byte("$-1\r\n")
 		return
 	}
@@ -64,7 +64,6 @@ func (db *database) setHashFields(fields []string, resp *[]byte) {
 
 		db.Hashes[hash][field] = newValue
 	}
-
 	*resp = []byte(":" + strconv.Itoa(newFields) + "\r\n")
 }
 func (db *database) getHashField(fields []string, resp *[]byte) {
@@ -75,7 +74,7 @@ func (db *database) getHashField(fields []string, resp *[]byte) {
 	hash := fields[1]
 	field := fields[2]
 	if _, exists := db.Hashes[hash][field]; !exists {
-		slog.Warn("key not found", "hash", hash, "field", field)
+		slog.Debug("hash field not found", "hash", hash, "field", field)
 		*resp = []byte("$-1\r\n")
 		return
 	}
@@ -93,7 +92,7 @@ func (db *database) getAllHashFields(fields []string, resp *[]byte) {
 
 	hash := fields[1]
 	if _, exists := db.Hashes[hash]; !exists {
-		slog.Warn("key not found", "key", hash)
+		slog.Debug("hash key not found", "hash", hash)
 		*resp = []byte("*0\r\n")
 		return
 	}

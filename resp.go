@@ -126,3 +126,14 @@ func parseBulk(reader *bufio.Reader) (string, error) {
 
 	return string(data), nil
 }
+
+func encodeCommand(fields []string) []byte {
+
+	encodedResp := []byte("*" + strconv.Itoa(len(fields)) + "\r\n")
+	for _, field := range fields {
+		encodedField := []byte("$" + strconv.Itoa(len(field)) + "\r\n" + field + "\r\n")
+		encodedResp = append(encodedResp, encodedField...)
+	}
+
+	return encodedResp
+}
