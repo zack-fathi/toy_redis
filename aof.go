@@ -3,8 +3,6 @@ package main
 import (
 	"bufio"
 	"errors"
-
-	// "fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -58,7 +56,7 @@ func (aof *aof) replay(db *database) error {
 
 	for {
 
-		// Process your AOF text/RESP command here
+		// Process AOF text/RESP command
 		fields, err := decodeRequest(reader, remoteAddr)
 		if errors.Is(err, io.EOF) {
 			return nil
@@ -73,7 +71,6 @@ func (aof *aof) replay(db *database) error {
 			slog.Error("failed to apply replayed command", "source", remoteAddr, "error", err)
 			return err
 		}
-		// fmt.Print("Loaded log line: ", "line", line)
 	}
 }
 
